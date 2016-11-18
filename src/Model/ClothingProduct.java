@@ -5,11 +5,12 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import javax.crypto.spec.DESedeKeySpec;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,11 +33,50 @@ public class ClothingProduct{
 
 
     public ClothingProduct(String brand, String name,  double price, URL mainPage) {
+        this.sku = "";
+        this.alternateSKU = "";
+        this.description = "";
+        this.colour = "";
         this.name = name;
         this.brand = brand;
         this.mainPage = mainPage;
         this.price = price;
         sizes = new ArrayList<String>();
+
+    }
+
+    public ClothingProduct(String alternateSKU, String brand, String name, String size, String description, String colour, String sku, double price, String url) {
+        try{
+            this.alternateSKU = alternateSKU;
+            this.brand = brand;
+            this.name = name;
+            this.description = description;
+            sizes = new ArrayList<String>();
+            sizes.add(size);
+            this.colour = colour;
+            this.sku = sku;
+            this.price = price;
+            this.mainPage = new URL(url);
+        } catch (MalformedURLException e){
+            System.out.println("Malformed URL");
+        }
+
+    }
+    public void insertSizes(ClothingProduct product){
+        List<String> otherSizes = product.getSizes();
+        for(String s: otherSizes){
+            if(!sizes.contains(s)){
+                sizes.add(s);
+            }
+        }
+    }
+
+    public List<String> getSizes(){
+        return Collections.unmodifiableList(sizes);
+    }
+
+    public boolean containsSize(String size){
+        return sizes.contains(size);
     }
 
     public String getCategory() {
@@ -87,42 +127,52 @@ public class ClothingProduct{
         this.price = price;
     }
 
-    public String getSizes() {
-        StringBuilder sb = new StringBuilder();
-        for(String s: sizes){
-            sb.append(s + ":");
-        }
-        return (sb.toString().length() >= 1?  sb.toString().substring(0, sb.toString().length()-1):"");
-    }
-
     public void setSizes(List<String> sizes) {
         this.sizes = sizes;
     }
 
     @Override
     public String toString(){
-        return (sku + "," + brand + "," + name + "," + getSizes() + "," + description + "," + colour + "," + alternateSKU + '\n' ).replace("\n", "");
+        if(sku.equals("")) sku = "XXXX-XXXX";
+        StringBuilder sb = new StringBuilder();
+        for(String s: sizes){
+            sb.append(s);
+            if(sizes.iterator().hasNext()){
+                sb.append(":");
+            }
+        }
+        return (sku + "," + brand + "," + name + "," + sb.toString() + "," + description + "," + colour + "," + alternateSKU + "," + price + "," + mainPage.toString());
     }
+
+    public String toMultiLineString(){
+        if(sku.equals("")) sku = "XXXX-XXXX";
+        StringBuilder sb = new StringBuilder();
+
+        for(String s: sizes){
+            sb.append((sku + "," + brand + "," + name + "," + s + "," + description + "," + colour + "," + alternateSKU + "," + price + "," + mainPage.toString()).replace("\n", ""));
+            if(sizes.iterator().hasNext()){
+                sb.append("\n");
+            }
+        }
+        return sb.toString();
+    }
+
+
 
     public void parsePage(OutputStreamWriter osw) throws IOException{
         try{
-            Document doc = Jsoup.connect(mainPage.toString()).userAgent("Mozilla").cookie("auth", "token").timeout(3000).post();
+            Document doc = Jsoup.connect(mainPage.toString()).userAgent("Chrome").cookie("auth", "token").timeout(3000).post();
             //parse SKU
             parseSKU(doc);
             //parse sizes
             parseSizes(doc);
             //parse description
             parseDescription(doc);
-
-            osw.write(toString() + '\n');
-            osw.flush();
-            System.out.println(toString());
-
         } catch(NullPointerException npe){
             System.out.println(npe.getMessage() + "Problem in Parse Page");
+        } catch(IOException io){
+            System.out.println("Product is out of stock at:" + mainPage.toString());
         }
-
-
     }
 
     private void parseSKU(Document doc) throws IOException {
@@ -159,16 +209,18 @@ public class ClothingProduct{
                 String s = t.replace(",", "(comma)");
                 m = typicalSKU.matcher(s);
                 m2 = variationSKU.matcher(s);
-                if(s.toLowerCase().contains("made in")){
+                if (s.contains("<b>")){
+                    break;
+                } else if(s.toLowerCase().contains("made in")){
                     break;
                 } else if(m2.find()){
-                    alternateSKU = s.replace(m.group(), "");
+                    alternateSKU = s.replace(m2.group(), "").trim();
                 } else if (s.contains("- Style #: ")) {
-                    alternateSKU = s.replace("- Style #: ", "");
+                    alternateSKU = s.replace("- Style #: ", "").trim();
                 } else if (m.find() && !s.contains("%")) {
-                    alternateSKU = m.group();
+                    alternateSKU = m.group().trim();
                 } else if (s.contains(" - Color: ")) {
-                    colour = s.replace(" - Color: ", "");
+                    colour = s.replace(" - Color: ", "").trim();
                 } else if (s.contains("Model")) {
                     break;
                 } else {
