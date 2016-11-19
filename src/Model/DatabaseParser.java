@@ -41,6 +41,13 @@ public class DatabaseParser {
         String SKU = splitString[6].trim();
         String price = splitString[7].trim();
         String rawUrl = splitString[8].trim();
-        pm.addProductFromData(altSKU, brand, name, size, desc, colour, SKU, price, rawUrl);
+        String listOfPhotos;
+        if(splitString.length >= 10){
+            listOfPhotos = splitString[9];
+            System.out.println(listOfPhotos);
+        } else {
+            listOfPhotos = "";
+        }
+        pm.addProductFromData(altSKU, brand, name, size, desc, colour, SKU, price, rawUrl, listOfPhotos);
     }
 }

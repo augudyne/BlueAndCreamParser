@@ -35,7 +35,8 @@ public class Main {
         System.out.println(String.format("%1$10s", "[1] Load Data From HTML (fetch manually by product page HTML)"));
         System.out.println(String.format("%1$10s", "[2] Load Data From Database"));
         System.out.println(String.format("%1$10s", "[3] Display Products"));
-        System.out.println(String.format("%1$10s", "[4] Exit..."));
+        System.out.println(String.format("%1$10s", "[4] Get Images For Products In Database"));
+        System.out.println(String.format("%1$10s", "[5] Exit..."));
         try {
             int selection = Integer.parseInt(scanner.next());
             switch (selection) {
@@ -49,6 +50,8 @@ public class Main {
                     displayAllProducts();
                     break;
                 case 4:
+                    getAllImages();
+                case 5:
                     exit = true;
                     break;
             }
@@ -94,6 +97,15 @@ public class Main {
             System.out.println(p.toMultiLineString());
         }
         System.out.println(counter);
+    }
+
+    private static void getAllImages(){
+        int counter = 0;
+        for(ClothingProduct p: ProductManager.getInstance()){
+            counter++;
+            System.out.println("Parsing images for ClothingProduct #:" + counter);
+            p.parseImages("data/Picture/");
+        }
     }
 
 }

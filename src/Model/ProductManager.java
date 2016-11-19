@@ -16,6 +16,7 @@ import java.util.*;
 public class ProductManager implements Iterable<ClothingProduct> {
     private static ProductManager productManager;
     private Map<URL, ClothingProduct> products;
+    private int callCounter;
 
 
     private ProductManager() {
@@ -42,22 +43,15 @@ public class ProductManager implements Iterable<ClothingProduct> {
      * @param productPage the raw url of the product page
      */
 
-    public void addProductFromData(String altSKU, String brand, String name, String size, String desc, String colour, String SKU, String priceString, String productPage){
+    public void addProductFromData(String altSKU, String brand, String name, String size, String desc, String colour, String SKU, String priceString, String productPage, String listOfPhotos){
+        callCounter++;
         try{
-            String[] sizes = size.split(":");
             Double price = Double.parseDouble(priceString);
-            URL url = new URL(productPage);
-            for(String s: sizes){
-                ClothingProduct cpBuffer = new ClothingProduct(altSKU, brand, name, s, desc, colour, SKU, price, productPage);
-                insert(cpBuffer);
-            }
-
+            ClothingProduct clothingProductBuffer = new ClothingProduct(altSKU, brand, name, size, desc, colour, SKU, price, productPage, listOfPhotos);
+            insert(clothingProductBuffer);
         } catch (NumberFormatException nfe){
             System.out.println("Invalid Cost String: Tried to parse as double");
-        } catch (MalformedURLException mue){
-            System.out.println("Invalid URL String: Tried to create URL");
         }
-
     }
 
     /**
@@ -85,7 +79,6 @@ public class ProductManager implements Iterable<ClothingProduct> {
     private void insert(ClothingProduct cp){
         if(!products.keySet().contains(cp.getMainPage())){
             products.put(cp.getMainPage(), cp);
-            System.out.println("New Product Added, total is now: " + products.size());
         } else {
             ClothingProduct existingCP = products.get(cp.getMainPage());
             existingCP.insertSizes(cp);

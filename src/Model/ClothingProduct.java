@@ -1,12 +1,12 @@
 package Model;
 
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
  * Created by Austin on 2016-11-14.
  */
 public class ClothingProduct{
+    private static final String ROOT_DIRECTORY = "http://www.blueandcream.com/mm5/";
     private String category;
     private String name;
     private String sku;
@@ -30,6 +31,7 @@ public class ClothingProduct{
     private String description;
     private String colour;
     private String alternateSKU;
+    private List<URL> listOfPhotos;
 
 
     public ClothingProduct(String brand, String name,  double price, URL mainPage) {
@@ -42,23 +44,41 @@ public class ClothingProduct{
         this.mainPage = mainPage;
         this.price = price;
         sizes = new ArrayList<String>();
+        listOfPhotos = new ArrayList<URL>();
 
     }
 
-    public ClothingProduct(String alternateSKU, String brand, String name, String size, String description, String colour, String sku, double price, String url) {
+    public ClothingProduct(String alternateSKU, String brand, String name, String size, String description, String colour, String sku, double price, String url, String listOfPhotos) {
         try{
+            this.sizes = new ArrayList<String>();
+            String[] sizesSplit = size.split(":");
+            for(String s: sizesSplit){
+                if(!s.equals("")){
+                    sizes.add(s);
+                }
+            }
             this.alternateSKU = alternateSKU;
             this.brand = brand;
             this.name = name;
             this.description = description;
-            sizes = new ArrayList<String>();
-            sizes.add(size);
             this.colour = colour;
             this.sku = sku;
             this.price = price;
             this.mainPage = new URL(url);
+            String[] photoLinks = listOfPhotos.split("\\|");
+            this.listOfPhotos = new ArrayList<URL>();
+            for(String s: photoLinks){
+                if(!s.trim().equals("")){
+                    try{
+                        this.listOfPhotos.add(new URL(s));
+                    } catch(MalformedURLException e){
+                        System.out.println("Problem adding picture link as URL to ClothingProduct: " + s);
+                    }
+
+                }
+            }
         } catch (MalformedURLException e){
-            System.out.println("Malformed URL");
+            System.out.println("Malformed URL in ClothingProduct long-from constructor");
         }
 
     }
@@ -131,17 +151,39 @@ public class ClothingProduct{
         this.sizes = sizes;
     }
 
+    private String delimitedSizes(){
+        if(sizes.size() > 0) {
+            StringBuilder sb = new StringBuilder();
+            for (String s : sizes) {
+                sb.append(s);
+                if (sizes.iterator().hasNext()) {
+                    sb.append(":");
+                }
+            }
+
+            return sb.toString();
+        } else return "";
+    }
+
+    private String delimitedPhotoLinks(){
+        if(listOfPhotos.size() > 0) {
+            StringBuilder sb = new StringBuilder();
+            for (URL u : listOfPhotos) {
+                sb.append(u.toString());
+                if (listOfPhotos.iterator().hasNext()) {
+                    sb.append("|");
+                }
+            }
+            return sb.toString();
+        } else return "";
+    }
+
+
     @Override
     public String toString(){
         if(sku.equals("")) sku = "XXXX-XXXX";
-        StringBuilder sb = new StringBuilder();
-        for(String s: sizes){
-            sb.append(s);
-            if(sizes.iterator().hasNext()){
-                sb.append(":");
-            }
-        }
-        return (sku + "," + brand + "," + name + "," + sb.toString() + "," + description + "," + colour + "," + alternateSKU + "," + price + "," + mainPage.toString());
+
+        return (sku + "," + brand + "," + name + "," + delimitedSizes() + "," + description + "," + colour + "," + alternateSKU + "," + price + "," + mainPage.toString() + "," + delimitedPhotoLinks());
     }
 
     public String toMultiLineString(){
@@ -149,7 +191,7 @@ public class ClothingProduct{
         StringBuilder sb = new StringBuilder();
 
         for(String s: sizes){
-            sb.append((sku + "," + brand + "," + name + "," + s + "," + description + "," + colour + "," + alternateSKU + "," + price + "," + mainPage.toString()).replace("\n", ""));
+            sb.append((sku + "," + brand + "," + name + "," + s + "," + description + "," + colour + "," + alternateSKU + "," + price + "," + mainPage.toString() + "," + delimitedPhotoLinks()).replace("\n", ""));
             if(sizes.iterator().hasNext()){
                 sb.append("\n");
             }
@@ -168,6 +210,9 @@ public class ClothingProduct{
             parseSizes(doc);
             //parse description
             parseDescription(doc);
+            //parse photos links
+            parseLinks(doc);
+
         } catch(NullPointerException npe){
             System.out.println(npe.getMessage() + "Problem in Parse Page");
         } catch(IOException io){
@@ -232,7 +277,50 @@ public class ClothingProduct{
         } catch (IndexOutOfBoundsException n1){
             System.out.println(n1.getMessage() + " with description: " + infoWrapper.toString());
         }
+    }
 
+    private void parseLinks(Document doc) {
+        Elements photoSources = doc.getElementById("product-gallery").select("img");
+        for(Element e: photoSources){
+            try{
+                System.out.println(e.toString());
+                String rawLink = e.attr("src");
+                URL bufferURL = new URL(ROOT_DIRECTORY + rawLink);
+                listOfPhotos.add(bufferURL);
+            } catch (MalformedURLException mf){
+                System.out.println("Unable to parse URL: " + ROOT_DIRECTORY + e.attr("src"));
+            }
+
+        }
+    }
+
+    public void parseImages(String filePath){
+        String baseDirectory = filePath + alternateSKU + "/";
+        boolean hasSucceeded = new File(baseDirectory).mkdirs();
+        int indexCounter = 0;
+        String fullFilePath = "";
+        byte[] toWrite = {};
+        for(URL u : listOfPhotos){
+            indexCounter++;
+            try {
+                fullFilePath = baseDirectory + alternateSKU + "-" + indexCounter + ".jpg";
+                OutputStream os = new FileOutputStream(new File(fullFilePath));
+                try{
+                    System.out.println("Connecting to site");
+                    Connection.Response response = Jsoup.connect(u.toString()).userAgent("Chrome").timeout(3000).ignoreContentType(true)
+                            .cookie("auth", "token").execute();
+                    toWrite = response.bodyAsBytes();
+                } catch (IOException e1){
+                    Logger.getInstance().write("Unable to connect to picture link in product: " + u.toString());
+                }
+
+                os.write(toWrite);
+                os.close();
+
+            } catch (IOException e){
+                Logger.getInstance().write("Cannot create file with name :" + fullFilePath + e.getMessage());
+            }
+        }
     }
 
 

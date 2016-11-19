@@ -19,20 +19,19 @@ public class Logger {
         }
     }
 
-    public Logger getInstance(){
+    public static Logger getInstance(){
         if(instance == null){
             return new Logger();
         } else
             return instance;
     }
 
-    public void write(String s) throws IOException {
+    public void write(String s){
         try{
             osw.write(s + '\n');
             osw.flush();
         } catch (IOException e1){
             System.out.println("IO Exception in Logger Instance");
-            throw new IOException();
         }
 
     }
